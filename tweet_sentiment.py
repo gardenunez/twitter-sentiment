@@ -58,33 +58,38 @@ def get_sentiments(tweets, scores):
     print('Getting sentiments ...')
     tweets_scores = {}
     for text in tweets:
-        text = sanitize_text(text)
-        splitted_text = text.split()
-        score_map = {}
-        degree = range(min(len(splitted_text), MAX_NGRAMS_DEGREE) + 1, 0, -1)
-        ignore_words = []
-        for g in degree:
-            ng = ngrams(splitted_text, g)
-            for words in ng:
-                term = ' '.join(words)
-                if term in scores:
-                    # if multiple words term, ignore this ones if appears again
-                    if len(words) > 1:
-                        ignore_words.extend(words)
-                    elif term in ignore_words:
-                        ignore_words.remove(term)
-                        continue
-                    if term in score_map:
-                        score_map[term] += 1
-                    else:
-                        score_map[term] = 1
-        score = sum([scores[key] * value for key, value in score_map.items()])
+        score = get_sentiment(scores, text)
         if score in tweets_scores:
             tweets_scores[score].append(text)
         else:
             tweets_scores[score] = [text]
     print('DONE ...')
     return tweets_scores
+
+
+def get_sentiment(scores, text):
+    text = sanitize_text(text)
+    splitted_text = text.split()
+    score_map = {}
+    degree = range(min(len(splitted_text), MAX_NGRAMS_DEGREE) + 1, 0, -1)
+    ignore_words = []
+    for g in degree:
+        ng = ngrams(splitted_text, g)
+        for words in ng:
+            term = ' '.join(words)
+            if term in scores:
+                # if multiple words term, ignore this ones if appears again
+                if len(words) > 1:
+                    ignore_words.extend(words)
+                elif term in ignore_words:
+                    ignore_words.remove(term)
+                    continue
+                if term in score_map:
+                    score_map[term] += 1
+                else:
+                    score_map[term] = 1
+    score = sum([scores[key] * value for key, value in score_map.items()])
+    return score
 
 
 def parse_tweets(file_path):
