@@ -7,9 +7,9 @@ import json
 import os
 import sys
 from itertools import chain
+from pprint import pprint
 
-import requests
-from requests_oauthlib import OAuth1
+import tweepy
 
 MAX_NGRAMS_DEGREE = 3
 
@@ -55,32 +55,35 @@ def sanitize_text(text):
 
 
 def get_sentiments(tweets, scores):
-    tweets_scores = []
-    for tweet in tweets['statuses']:
-        if 'text' in tweet:
-            text = tweet['text']
-            text = sanitize_text(text)
-            splitted_text = text.split()
-            score_map = {}
-            degree = range(min(len(splitted_text), MAX_NGRAMS_DEGREE) + 1, 0, -1)
-            ignore_words = []
-            for g in degree:
-                ng = ngrams(splitted_text, g)
-                for words in ng:
-                    term = ' '.join(words)
-                    if term in scores:
-                        # if multiple words term, ignore this ones if appears again
-                        if len(words) > 1:
-                            ignore_words.extend(words)
-                        elif term in ignore_words:
-                            ignore_words.remove(term)
-                            continue
-                        if term in score_map:
-                            score_map[term] += 1
-                        else:
-                            score_map[term] = 1
-            score = sum([scores[key] * value for key, value in score_map.items()])
-            tweets_scores.append(score)
+    print('Getting sentiments ...')
+    tweets_scores = {}
+    for text in tweets:
+        text = sanitize_text(text)
+        splitted_text = text.split()
+        score_map = {}
+        degree = range(min(len(splitted_text), MAX_NGRAMS_DEGREE) + 1, 0, -1)
+        ignore_words = []
+        for g in degree:
+            ng = ngrams(splitted_text, g)
+            for words in ng:
+                term = ' '.join(words)
+                if term in scores:
+                    # if multiple words term, ignore this ones if appears again
+                    if len(words) > 1:
+                        ignore_words.extend(words)
+                    elif term in ignore_words:
+                        ignore_words.remove(term)
+                        continue
+                    if term in score_map:
+                        score_map[term] += 1
+                    else:
+                        score_map[term] = 1
+        score = sum([scores[key] * value for key, value in score_map.items()])
+        if score in tweets_scores:
+            tweets_scores[score].append(text)
+        else:
+            tweets_scores[score] = [text]
+    print('DONE ...')
     return tweets_scores
 
 
@@ -99,29 +102,29 @@ def parse_sentiment_file(sentiment_file_path):
         return scores
 
 
-def twitter_request(url):
+def twitter_request(query):
     """
     Construct, sign, and open a twitter request
     using the hard-coded credentials above.
     """
-    auth = OAuth1(API_KEY, API_SECRET, ACCESS_TOKEN_KEY, ACCESS_TOKEN_SECRET)
-    response = requests.get(url, auth=auth)
-
-    return response
-
-
-def fetch_samples():
-    url = "https://api.twitter.com/1.1/search/tweets.json?q=software+diversity"
-    response = twitter_request(url)
-    return response.json()
+    print('Getting tweets ...')
+    auth = tweepy.OAuthHandler(API_KEY, API_SECRET)
+    auth.set_access_token(ACCESS_TOKEN_KEY, ACCESS_TOKEN_SECRET)
+    api = tweepy.API(auth, wait_on_rate_limit=True)
+    tweet_texts = []
+    for tweet in tweepy.Cursor(api.search, q=query,
+                               count=20, lang="en", since='2017-09-01').items():
+        tweet_texts.append(tweet.text)
+    print('DONE ...')
+    return tweet_texts
 
 
 def main():
-    tweets = fetch_samples()
+    tweets = twitter_request("hello world")
     scores = parse_sentiment_file(sys.argv[1])
-    # tweets = parse_tweets(sys.argv[2])
     tweets_scores = get_sentiments(tweets, scores)
-    print(tweets_scores)
+    for key, values in tweets_scores.items():
+        print(key, len(values))
 
 
 if __name__ == '__main__':
