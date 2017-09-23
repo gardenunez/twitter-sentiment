@@ -1,4 +1,5 @@
 import os
+import json
 import requests
 from requests_oauthlib import OAuth1
 
@@ -25,7 +26,7 @@ def twitter_request(url):
 def fetch_samples():
     url = "https://api.twitter.com/1.1/search/tweets.json?q=software+diversity"
     response = twitter_request(url)
-    print(response.json())
+    print(json.dumps(response.json()))
 
 
 if __name__ == '__main__':
