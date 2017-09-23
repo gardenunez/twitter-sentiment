@@ -2,12 +2,10 @@
 """
 Derive the sentiment of each tweet
 """
-import json
+import argparse
 # from nltk.util import ngrams
 import os
-import sys
 from itertools import chain
-from pprint import pprint
 
 import tweepy
 
@@ -94,7 +92,7 @@ def get_sentiment(scores, text):
 
 def parse_tweets(file_path):
     with open(file_path) as tweets_file:
-        tweets = json.load(tweets_file)
+        tweets = tweets_file.readlines()
     return tweets
 
 
@@ -117,19 +115,45 @@ def twitter_request(query):
     auth.set_access_token(ACCESS_TOKEN_KEY, ACCESS_TOKEN_SECRET)
     api = tweepy.API(auth, wait_on_rate_limit=True)
     tweet_texts = []
-    for tweet in tweepy.Cursor(api.search, q=query,
-                               count=20, lang="en", since='2017-09-01').items():
-        tweet_texts.append(tweet.text)
+    try:
+        for tweet in tweepy.Cursor(api.search, q=query,
+                                   count=20, lang="en", since='2017-09-01').items():
+            tweet_texts.append(tweet.text)
+    except Exception as e:
+        print(e)
     print('DONE ...')
     return tweet_texts
 
 
-def main():
-    tweets = twitter_request("hello world")
-    scores = parse_sentiment_file(sys.argv[1])
-    tweets_scores = get_sentiments(tweets, scores)
+def download(args):
+    texts = twitter_request(args.query)
+    with open(args.destination, 'w') as output:
+        output.writelines(texts)
+
+
+def sentiment(args):
+    scores = parse_sentiment_file(args.score_file)
+    texts = parse_tweets(args.source_file)
+    tweets_scores = get_sentiments(texts, scores)
     for key, values in tweets_scores.items():
         print(key, len(values))
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers()
+    download_parser = subparsers.add_parser('download')
+    download_parser.add_argument('-q', dest='query', help='query')
+    download_parser.add_argument('-d', dest='destination', help='destination file')
+    download_parser.set_defaults(func=download)
+    sent_parser = subparsers.add_parser('sentiment')
+    sent_parser.add_argument('--score', dest='score_file', help='file with scores')
+    sent_parser.add_argument('--source', dest='source_file', help='file to parse')
+    sent_parser.set_defaults(func=sentiment)
+    args = parser.parse_args()
+
+    if args.func:
+        args.func(args)
 
 
 if __name__ == '__main__':
